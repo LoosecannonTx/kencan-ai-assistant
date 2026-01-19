@@ -1,0 +1,45 @@
+{
+  "agent": {
+    "name": "Kencan",
+    "version": "1.0.0",
+    "enabled": true
+  },
+  "cloud": {
+    "platform": "colab",
+    "endpoint": "https://your-endpoint.ngrok.io",
+    "api_key": "YOUR_API_KEY_HERE",
+    "reconnect_interval": 5,
+    "heartbeat_interval": 30
+  },
+  "local_agent": {
+    "host": "127.0.0.1",
+    "port": 5000,
+    "expose_public": false,
+    "ngrok_auth_token": "YOUR_NGROK_TOKEN"
+  },
+  "capabilities": {
+    "browser_control": true,
+    "file_operations": true,
+    "program_installation": true,
+    "system_commands": true,
+    "web_research": true
+  },
+  "security": {
+    "require_confirmation": false,
+    "allowed_commands": [],
+    "blocked_commands": ["format", "del C:\\Windows", "rm -rf /"],
+    "command_timeout": 300,
+    "max_retries": 3
+  },
+  "browser": {
+    "default": "chrome",
+    "headless": false,
+    "user_data_dir": null,
+    "download_dir": "C:\\Users\\Kenda\\Downloads"
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/kencan.log",
+    "console": true
+  }
+}

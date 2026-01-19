@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+config/secrets.json
+
+# Logs
+*.log
+logs/
+
+# Model files (too large for git)
+models/
+*.pth
+*.bin
+*.onnx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+config/settings.local.json
+data/
+temp/
