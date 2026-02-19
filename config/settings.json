@@ -9,6 +9,9 @@
     "api_key": "wk-1.d4d91dcebfb6eb623244d2fe8c41cb7f2390caaad32e63abf46b93516dd4d73c",
     "environment_id": "5Ux3j4JSt6efPxpN53Kvac"
   },
+  "google": {
+    "account": "cannonball92085@gmail.com"
+  },
   "cloud": {
     "platform": "colab",
     "endpoint": "https://your-endpoint.ngrok.io",

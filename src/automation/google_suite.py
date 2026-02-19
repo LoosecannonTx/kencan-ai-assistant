@@ -137,7 +137,7 @@ class GoogleSuiteController:
     def list_files(self, query: Optional[str] = None, max_results: int = 20) -> Dict[str, Any]:
         """List files in Google Drive"""
         try:
-            args = ['drive', 'list', '--max', str(max_results)]
+            args = ['drive', 'ls', '--max', str(max_results)]
             if query:
                 args.extend(['--query', query])
             return self._run_gog(args)
