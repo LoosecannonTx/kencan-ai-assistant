@@ -2,7 +2,12 @@
   "agent": {
     "name": "Kencan",
     "version": "1.0.0",
-    "enabled": true
+    "enabled": true,
+    "backend": "oz"
+  },
+  "oz": {
+    "api_key": "YOUR_WARP_API_KEY",
+    "environment_id": "xTP28oarMUXUZajzfdTiSO"
   },
   "cloud": {
     "platform": "colab",

@@ -17,6 +17,7 @@ from automation.browser_control import BrowserController
 from automation.system_control import SystemController
 from automation.file_operations import FileOperations
 from communication.api_client import CloudAPIClient
+from communication.oz_client import OzCloudClient
 from utils.logger import setup_logger
 from utils.config import load_config
 
@@ -32,7 +33,15 @@ class LocalAgent:
         self.browser = BrowserController(self.config)
         self.system = SystemController(self.config)
         self.files = FileOperations(self.config)
-        self.cloud_client = CloudAPIClient(self.config)
+        
+        # Initialize cloud client based on backend setting
+        self.backend = self.config.get('agent', {}).get('backend', 'cloud')
+        if self.backend == 'oz':
+            self.cloud_client = OzCloudClient(self.config)
+            self.logger.info("Using Oz cloud agent backend")
+        else:
+            self.cloud_client = CloudAPIClient(self.config)
+            self.logger.info("Using legacy cloud API backend")
         
         self.running = False
         self.logger.info("Local agent initialized")
@@ -146,6 +155,65 @@ class LocalAgent:
                 return
         
         self.logger.info("✅ Connected to cloud AI")
+        
+        if self.backend == 'oz':
+            self._run_interactive_mode()
+        else:
+            self._run_polling_mode()
+    
+    def _run_interactive_mode(self):
+        """Run in interactive mode with Oz backend (request/response)"""
+        self.logger.info("Running in interactive mode (Oz backend)")
+        print("\n🤖 Kencan is ready! Type your requests below.")
+        print("Type 'quit' to exit, 'clear' to reset conversation.\n")
+        
+        while self.running:
+            try:
+                user_input = input("You: ").strip()
+                
+                if not user_input:
+                    continue
+                if user_input.lower() == 'quit':
+                    self.logger.info("User requested quit")
+                    self.running = False
+                    break
+                if user_input.lower() == 'clear':
+                    self.cloud_client.clear_conversation()
+                    print("Conversation cleared.\n")
+                    continue
+                
+                # Send to Oz and get response
+                print("Thinking...")
+                response = self.cloud_client.send_user_input(user_input)
+                
+                if response.get('success'):
+                    print(f"\nKencan: {response.get('response', '')}\n")
+                    
+                    # Execute the command if one was parsed
+                    command = response.get('command')
+                    if command and command.get('action'):
+                        print(f"Executing: {command.get('action')}...")
+                        result = self.execute_command(command)
+                        if result.get('success'):
+                            print(f"✅ {result.get('message', 'Done')}\n")
+                        else:
+                            print(f"❌ Error: {result.get('error', 'Unknown error')}\n")
+                else:
+                    print(f"\n❌ Error: {response.get('error', 'Unknown error')}\n")
+                    
+            except KeyboardInterrupt:
+                self.logger.info("Shutting down...")
+                self.running = False
+                break
+            except EOFError:
+                self.running = False
+                break
+            except Exception as e:
+                self.logger.error(f"Error in interactive loop: {str(e)}")
+                print(f"\n❌ Error: {str(e)}\n")
+    
+    def _run_polling_mode(self):
+        """Run in polling mode with legacy cloud backend"""
         self.logger.info("Listening for commands...")
         
         while self.running:
