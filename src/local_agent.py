@@ -22,6 +22,7 @@ from communication.oz_client import OzCloudClient
 from utils.logger import setup_logger
 from utils.config import load_config
 from utils.memory import PersistentMemory
+from utils.voice import VoiceAssistant, speak, respond
 
 class LocalAgent:
     """Main local agent that controls PC operations"""
@@ -51,7 +52,20 @@ class LocalAgent:
             self.logger.info("Using legacy cloud API backend")
         
         self.running = False
+        self.voice = None  # Initialized if --voice flag used
+        self.voice_enabled = False
         self.logger.info("Local agent initialized")
+    
+    def enable_voice(self):
+        """Enable voice assistant"""
+        try:
+            self.voice = VoiceAssistant(wake_word="kencan")
+            self.voice_enabled = True
+            self.logger.info("Voice assistant enabled")
+            self.voice.say("Kencan voice assistant activated")
+        except Exception as e:
+            self.logger.error(f"Failed to enable voice: {e}")
+            self.voice_enabled = False
     
     def execute_command(self, command: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a command from the cloud AI"""
@@ -244,41 +258,91 @@ class LocalAgent:
         """Run in interactive mode with Oz backend (request/response)"""
         self.logger.info("Running in interactive mode (Oz backend)")
         print("\n🤖 Kencan is ready! Type your requests below.")
-        print("Type 'quit' to exit, 'clear' to reset conversation.\n")
+        print("Type 'quit' to exit, 'clear' to reset conversation.")
+        if self.voice_enabled:
+            print("Voice enabled - say 'Kencan' to use voice commands.")
+            self.voice.say("Ready! Type or speak your requests.")
+        print()
         
         while self.running:
             try:
-                user_input = input("You: ").strip()
+                # Get input (text or voice)
+                if self.voice_enabled:
+                    user_input = self._get_input_with_voice()
+                else:
+                    user_input = input("You: ").strip()
                 
                 if not user_input:
                     continue
                 if user_input.lower() == 'quit':
                     self.logger.info("User requested quit")
+                    if self.voice_enabled:
+                        self.voice.say("Goodbye!")
                     self.running = False
                     break
                 if user_input.lower() == 'clear':
                     self.cloud_client.clear_conversation()
-                    print("Conversation cleared.\n")
+                    msg = "Conversation cleared."
+                    print(msg + "\n")
+                    if self.voice_enabled:
+                        self.voice.say(msg)
                     continue
+                if user_input.lower() == 'voice':
+                    # Toggle voice listening
+                    if self.voice_enabled:
+                        spoken = self.voice.listen_once()
+                        if spoken:
+                            user_input = spoken
+                            print(f"You (voice): {user_input}")
+                        else:
+                            print("Didn't catch that. Try again.")
+                            continue
+                    else:
+                        print("Voice not enabled. Start with --voice flag.")
+                        continue
                 
                 # Send to Oz and get response
                 print("Thinking...")
+                if self.voice_enabled:
+                    self.voice.say("Let me think...")
+                    
                 response = self.cloud_client.send_user_input(user_input)
                 
                 if response.get('success'):
-                    print(f"\nKencan: {response.get('response', '')}\n")
+                    response_text = response.get('response', '')
+                    print(f"\nKencan: {response_text}\n")
+                    
+                    # Speak response (truncated for TTS)
+                    if self.voice_enabled and response_text:
+                        # Speak just the explanation or first sentence
+                        speak_text = response_text.split('.')[0] + '.'
+                        if len(speak_text) > 200:
+                            speak_text = speak_text[:200] + '...'
+                        self.voice.say(speak_text)
                     
                     # Execute the command if one was parsed
                     command = response.get('command')
                     if command and command.get('action'):
-                        print(f"Executing: {command.get('action')}...")
+                        action_name = command.get('action')
+                        print(f"Executing: {action_name}...")
+                        if self.voice_enabled:
+                            self.voice.say(f"Executing {action_name}")
                         result = self.execute_command(command)
                         if result.get('success'):
-                            print(f"✅ {result.get('message', 'Done')}\n")
+                            msg = result.get('message', 'Done')
+                            print(f"✅ {msg}\n")
+                            if self.voice_enabled:
+                                self.voice.say(msg)
                         else:
-                            print(f"❌ Error: {result.get('error', 'Unknown error')}\n")
+                            err = result.get('error', 'Unknown error')
+                            print(f"❌ Error: {err}\n")
+                            if self.voice_enabled:
+                                self.voice.say(f"Error: {err}")
                 else:
-                    print(f"\n❌ Error: {response.get('error', 'Unknown error')}\n")
+                    err = response.get('error', 'Unknown error')
+                    print(f"\n❌ Error: {err}\n")
+                    if self.voice_enabled:
+                        self.voice.say(f"Sorry, there was an error")
                     
             except KeyboardInterrupt:
                 self.logger.info("Shutting down...")
@@ -314,10 +378,20 @@ class LocalAgent:
                 self.logger.error(f"Error in main loop: {str(e)}")
                 time.sleep(5)
     
+    def _get_input_with_voice(self) -> str:
+        """Get input from keyboard, with voice as fallback"""
+        import sys
+        import select
+        
+        # Simple blocking input for Windows
+        return input("You: ").strip()
+    
     def stop(self):
         """Stop the agent"""
         self.running = False
         self.browser.cleanup()
+        if self.voice:
+            self.voice.cleanup()
         self.logger.info("Agent stopped")
 
 def setup():
@@ -373,6 +447,7 @@ def main():
     parser.add_argument('--setup', action='store_true', help='Run interactive setup')
     parser.add_argument('--config', type=str, default='config/settings.json',
                        help='Path to configuration file')
+    parser.add_argument('--voice', action='store_true', help='Enable voice assistant')
     
     args = parser.parse_args()
     
@@ -382,6 +457,10 @@ def main():
     
     # Start agent
     agent = LocalAgent(args.config)
+    
+    if args.voice:
+        agent.enable_voice()
+    
     try:
         agent.start()
     except KeyboardInterrupt:
