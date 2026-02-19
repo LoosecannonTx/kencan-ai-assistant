@@ -16,10 +16,12 @@ import argparse
 from automation.browser_control import BrowserController
 from automation.system_control import SystemController
 from automation.file_operations import FileOperations
+from automation.google_suite import GoogleSuiteController
 from communication.api_client import CloudAPIClient
 from communication.oz_client import OzCloudClient
 from utils.logger import setup_logger
 from utils.config import load_config
+from utils.memory import PersistentMemory
 
 class LocalAgent:
     """Main local agent that controls PC operations"""
@@ -33,6 +35,11 @@ class LocalAgent:
         self.browser = BrowserController(self.config)
         self.system = SystemController(self.config)
         self.files = FileOperations(self.config)
+        self.google = GoogleSuiteController(self.config)
+        
+        # Initialize persistent memory
+        self.memory = PersistentMemory()
+        self.session_id = None
         
         # Initialize cloud client based on backend setting
         self.backend = self.config.get('agent', {}).get('backend', 'cloud')
@@ -102,6 +109,78 @@ class LocalAgent:
             elif action == 'research':
                 # Multi-step research task
                 result = self._perform_research(params.get('topic'))
+            
+            # Google Suite actions
+            elif action == 'send_email':
+                result = self.google.send_email(
+                    params.get('to'),
+                    params.get('subject'),
+                    params.get('body'),
+                    params.get('cc'),
+                    params.get('bcc')
+                )
+            
+            elif action == 'search_emails':
+                result = self.google.search_emails(
+                    params.get('query'),
+                    params.get('max_results', 10)
+                )
+            
+            elif action == 'read_email':
+                result = self.google.read_email(params.get('message_id'))
+            
+            elif action == 'list_calendar_events':
+                result = self.google.list_events(params.get('days', 7))
+            
+            elif action == 'create_calendar_event':
+                result = self.google.create_event(
+                    params.get('title'),
+                    params.get('start'),
+                    params.get('end'),
+                    params.get('description'),
+                    params.get('location')
+                )
+            
+            elif action == 'list_drive_files':
+                result = self.google.list_files(
+                    params.get('query'),
+                    params.get('max_results', 20)
+                )
+            
+            elif action == 'upload_to_drive':
+                result = self.google.upload_file(
+                    params.get('local_path'),
+                    params.get('folder_id')
+                )
+            
+            elif action == 'download_from_drive':
+                result = self.google.download_file(
+                    params.get('file_id'),
+                    params.get('local_path')
+                )
+            
+            elif action == 'search_contacts':
+                result = self.google.search_contacts(params.get('query'))
+            
+            elif action == 'add_task':
+                result = self.google.add_task(
+                    params.get('title'),
+                    params.get('notes'),
+                    params.get('due')
+                )
+            
+            elif action == 'list_tasks':
+                result = self.google.list_tasks(params.get('tasklist', '@default'))
+            
+            # Memory actions
+            elif action == 'remember':
+                if self.session_id:
+                    self.memory.record_learning(self.session_id, params.get('content'), 8)
+                result = {'success': True, 'message': 'Remembered'}
+            
+            elif action == 'recall':
+                memories = self.memory.search_memory(params.get('query'), 5)
+                result = {'success': True, 'memories': memories}
             
             else:
                 result = {
